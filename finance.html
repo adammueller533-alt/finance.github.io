@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finance Tracker | Budżet osobisty</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        :root {
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --text: #0f172a;
+            --text-light: #475569;
+            --border: #e2e8f0;
+            --income: #10b981;
+            --expense: #ef4444;
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --shadow: 0 1px 3px rgba(0,0,0,0.05);
+            --shadow-lg: 0 10px 25px -5px rgba(0,0,0,0.1);
+        }
+
+        body.dark {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --text: #f1f5f9;
+            --text-light: #94a3b8;
+            --border: #334155;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            transition: all 0.3s ease;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+
+        /* Header */
+        .header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 1rem 0;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 0.8rem;
+            align-items: center;
+        }
+
+        .theme-btn, .export-btn {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1.2rem;
+            border-radius: 40px;
+            cursor: pointer;
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .add-btn {
+            background: var(--primary);
+            border: none;
+            padding: 0.5rem 1.5rem;
+            border-radius: 40px;
+            cursor: pointer;
+            color: white;
+            font-weight: 600;
+        }
+
+        /* Karty bilansu */
+        .balance-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.2rem;
+            margin: 1.5rem 0;
+        }
+
+        .balance-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 1.2rem;
+            text-align: center;
+        }
+
+        .balance-card .label {
+            color: var(--text-light);
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .balance-card .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .balance-card.income .value { color: var(--income); }
+        .balance-card.expense .value { color: var(--expense); }
+        .balance-card.total .value { color: var(--primary); }
+
+        /* Wykresy */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .chart-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 1.2rem;
+        }
+
+        .chart-card h3 {
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+
+        canvas {
+            max-height: 250px;
+            width: 100%;
+        }
+
+        /* Cele oszczędnościowe */
+        .goals-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 1.2rem;
+            margin: 1.5rem 0;
+        }
+
+        .goals-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .goal-item {
+            background: var(--bg);
+            border-radius: 16px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .goal-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .goal-progress {
+            height: 8px;
+            background: var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .goal-progress-fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 10px;
+            transition: width 0.3s;
+        }
+
+        /* Filtry */
+        .filters-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-chip {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 0.4rem 1rem;
+            border-radius: 40px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .filter-chip.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .search-box input, .sort-select, .period-select {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 40px;
+            background: var(--surface);
+            color: var(--text);
+        }
+
+        /* Tabela transakcji */
+        .transactions-header {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr 80px;
+            gap: 1rem;
+            padding: 0.8rem 1rem;
+            background: var(--surface);
+            border-radius: 12px;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            font-size: 0.85rem;
+            border: 1px solid var(--border);
+        }
+
+        .transaction-item {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr 80px;
+            gap: 1rem;
+            align-items: center;
+            padding: 0.8rem 1rem;
+            background: var(--surface);
+            border-radius: 12px;
+            margin-bottom: 0.5rem;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+        }
+
+        .transaction-item:hover {
+            transform: translateX(4px);
+            border-color: var(--primary);
+        }
+
+        .amount-income { color: var(--income); font-weight: 600; }
+        .amount-expense { color: var(--expense); font-weight: 600; }
+
+        .category-badge {
+            padding: 0.2rem 0.8rem;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            width: fit-content;
+        }
+
+        .transaction-actions button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            opacity: 0.6;
+        }
+
+        .transaction-actions button:hover { opacity: 1; }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-light);
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: var(--surface);
+            width: 90%;
+            max-width: 450px;
+            border-radius: 28px;
+            padding: 1.8rem;
+        }
+
+        .modal-content h2 { margin-bottom: 1.2rem; }
+        .modal-content input, .modal-content select {
+            width: 100%;
+            padding: 0.8rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-light);
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 800px) {
+            .transactions-header { display: none; }
+            .transaction-item {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="container">
+        <div class="header-content">
+            <div class="logo">📊 Finance Tracker</div>
+            <div class="header-actions">
+                <button class="theme-btn" id="themeBtn">🌙</button>
+                <button class="export-btn" id="exportBtn">📎 Eksport CSV</button>
+                <button class="add-btn" id="openAddModal">+ Nowa transakcja</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Karty bilansu -->
+    <div class="balance-cards">
+        <div class="balance-card income">
+            <div class="label">Przychody</div>
+            <div class="value" id="totalIncome">0.00 zł</div>
+        </div>
+        <div class="balance-card expense">
+            <div class="label">Wydatki</div>
+            <div class="value" id="totalExpense">0.00 zł</div>
+        </div>
+        <div class="balance-card total">
+            <div class="label">Bilans</div>
+            <div class="value" id="balance">0.00 zł</div>
+        </div>
+    </div>
+
+    <!-- Wykresy -->
+    <div class="charts-grid">
+        <div class="chart-card">
+            <h3>📊 Wydatki według kategorii</h3>
+            <canvas id="expenseChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h3>📈 Miesięczne zestawienie</h3>
+            <canvas id="monthlyChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Cele oszczędnościowe -->
+    <div class="goals-section">
+        <div class="goals-header">
+            <h3>🎯 Cele oszczędnościowe</h3>
+            <button class="add-btn" id="openGoalModal" style="padding: 0.3rem 1rem;">+ Dodaj cel</button>
+        </div>
+        <div id="goalsList"></div>
+    </div>
+
+    <!-- Filtry -->
+    <div class="filters-bar">
+        <div class="filter-group" id="typeFilters">
+            <button class="filter-chip active" data-type="all">Wszystkie</button>
+            <button class="filter-chip" data-type="income">Przychody</button>
+            <button class="filter-chip" data-type="expense">Wydatki</button>
+        </div>
+        <div class="filter-group">
+            <select id="monthFilter" class="period-select">
+                <option value="all">Wszystkie miesiące</option>
+            </select>
+            <select id="yearFilter" class="period-select">
+                <option value="all">Wszystkie lata</option>
+            </select>
+        </div>
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Szukaj...">
+        </div>
+        <select id="sortSelect" class="sort-select">
+            <option value="date-desc">Data ↓</option>
+            <option value="date-asc">Data ↑</option>
+            <option value="amount-desc">Kwota ↓</option>
+            <option value="amount-asc">Kwota ↑</option>
+        </select>
+    </div>
+
+    <!-- Transakcje -->
+    <div class="transactions-header">
+        <div>Opis</div>
+        <div>Kategoria</div>
+        <div>Data</div>
+        <div>Kwota</div>
+        <div></div>
+    </div>
+    <div id="transactionsList"></div>
+</div>
+
+<footer>
+    <p>Finance Tracker | Dane zapisywane lokalnie w przeglądarce</p>
+</footer>
+
+<!-- Modal transakcji -->
+<div id="transactionModal" class="modal">
+    <div class="modal-content">
+        <h2 id="modalTitle">➕ Nowa transakcja</h2>
+        <input type="text" id="transDesc" placeholder="Opis">
+        <select id="transCategory">
+            <option value="food">🍔 Jedzenie</option>
+            <option value="transport">🚗 Transport</option>
+            <option value="bills">💡 Rachunki</option>
+            <option value="entertainment">🎬 Rozrywka</option>
+            <option value="health">💊 Zdrowie</option>
+            <option value="shopping">🛍️ Zakupy</option>
+            <option value="other">📦 Inne</option>
+        </select>
+        <select id="transType">
+            <option value="expense">Wydatek</option>
+            <option value="income">Przychód</option>
+        </select>
+        <input type="number" id="transAmount" placeholder="Kwota" step="0.01">
+        <input type="date" id="transDate">
+        <div class="modal-buttons">
+            <button class="theme-btn" id="closeModal">Anuluj</button>
+            <button class="add-btn" id="saveTransaction">Zapisz</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal celu -->
+<div id="goalModal" class="modal">
+    <div class="modal-content">
+        <h2>🎯 Nowy cel oszczędnościowy</h2>
+        <input type="text" id="goalName" placeholder="Nazwa celu (np. Nowy laptop)">
+        <input type="number" id="goalTarget" placeholder="Cel kwotowy (zł)" step="0.01">
+        <div class="modal-buttons">
+            <button class="theme-btn" id="closeGoalModal">Anuluj</button>
+            <button class="add-btn" id="saveGoal">Zapisz cel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==================== DANE ====================
+    let transactions = [];
+    let savingsGoals = [];
+    let editingId = null;
+    let currentTypeFilter = "all";
+    let currentMonth = "all";
+    let currentYear = "all";
+    let searchQuery = "";
+    let currentSort = "date-desc";
+
+    let expenseChart = null;
+    let monthlyChart = null;
+
+    // Kategorie
+    const categories = {
+        food: { name: "Jedzenie", icon: "🍔" },
+        transport: { name: "Transport", icon: "🚗" },
+        bills: { name: "Rachunki", icon: "💡" },
+        entertainment: { name: "Rozrywka", icon: "🎬" },
+        health: { name: "Zdrowie", icon: "💊" },
+        shopping: { name: "Zakupy", icon: "🛍️" },
+        other: { name: "Inne", icon: "📦" }
+    };
+
+    // Przykładowe dane
+    const sampleTransactions = [
+        { id: 1, description: "Zakupy spożywcze", category: "food", type: "expense", amount: 187.50, date: "2026-06-05" },
+        { id: 2, description: "Wypłata", category: "other", type: "income", amount: 5500.00, date: "2026-06-01" },
+        { id: 3, description: "Bilet miesięczny", category: "transport", type: "expense", amount: 110.00, date: "2026-06-02" },
+        { id: 4, description: "Kino", category: "entertainment", type: "expense", amount: 45.00, date: "2026-06-07" },
+        { id: 5, description: "Rachunek za prąd", category: "bills", type: "expense", amount: 234.00, date: "2026-05-15" },
+        { id: 6, description: "Freelance", category: "other", type: "income", amount: 1200.00, date: "2026-05-20" }
+    ];
+
+    const sampleGoals = [
+        { id: 1, name: "Nowy laptop", current: 2500, target: 5000 },
+        { id: 2, name: "Wakacje", current: 1200, target: 3000 }
+    ];
+
+    // ==================== FUNKCJE ====================
+    function loadData() {
+        const savedTrans = localStorage.getItem("finance_transactions");
+        const savedGoals = localStorage.getItem("finance_goals");
+        transactions = savedTrans ? JSON.parse(savedTrans) : sampleTransactions;
+        savingsGoals = savedGoals ? JSON.parse(savedGoals) : sampleGoals;
+        updateGoalCurrentAmounts();
+    }
+
+    function saveData() {
+        localStorage.setItem("finance_transactions", JSON.stringify(transactions));
+        localStorage.setItem("finance_goals", JSON.stringify(savingsGoals));
+    }
+
+    function updateGoalCurrentAmounts() {
+        const totalSaved = transactions.filter(t => t.type === "income").reduce((sum, t) => sum + t.amount, 0) -
+                           transactions.filter(t => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
+        // Prosta logika: pierwszy cel dostaje całość oszczędności (dla uproszczenia)
+        if (savingsGoals.length > 0) {
+            let remaining = Math.max(0, totalSaved);
+            for (let goal of savingsGoals) {
+                let needed = goal.target - (goal.current || 0);
+                let add = Math.min(needed, remaining);
+                goal.current = (goal.current || 0) + add;
+                remaining -= add;
+            }
+        }
+    }
+
+    function getNextId() {
+        return transactions.length > 0 ? Math.max(...transactions.map(t => t.id)) + 1 : 1;
+    }
+
+    function getNextGoalId() {
+        return savingsGoals.length > 0 ? Math.max(...savingsGoals.map(g => g.id)) + 1 : 1;
+    }
+
+    // ==================== BILANS ====================
+    function updateBalances() {
+        const incomes = transactions.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
+        const expenses = transactions.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+        const balance = incomes - expenses;
+        document.getElementById("totalIncome").innerText = incomes.toFixed(2) + " zł";
+        document.getElementById("totalExpense").innerText = expenses.toFixed(2) + " zł";
+        document.getElementById("balance").innerText = balance.toFixed(2) + " zł";
+        return { incomes, expenses };
+    }
+
+    // ==================== FILTRY ====================
+    function getFilteredTransactions() {
+        let filtered = [...transactions];
+        
+        if (currentTypeFilter !== "all") {
+            filtered = filtered.filter(t => t.type === currentTypeFilter);
+        }
+        
+        if (currentMonth !== "all") {
+            filtered = filtered.filter(t => {
+                const date = new Date(t.date);
+                return date.getMonth() + 1 === parseInt(currentMonth);
+            });
+        }
+        
+        if (currentYear !== "all") {
+            filtered = filtered.filter(t => {
+                const date = new Date(t.date);
+                return date.getFullYear() === parseInt(currentYear);
+            });
+        }
+        
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            filtered = filtered.filter(t => t.description.toLowerCase().includes(q));
+        }
+        
+        if (currentSort === "date-desc") {
+            filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+        } else if (currentSort === "date-asc") {
+            filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+        } else if (currentSort === "amount-desc") {
+            filtered.sort((a, b) => b.amount - a.amount);
+        } else if (currentSort === "amount-asc") {
+            filtered.sort((a, b) => a.amount - b.amount);
+        }
+        
+        return filtered;
+    }
+
+    function renderTransactions() {
+        const filtered = getFilteredTransactions();
+        const container = document.getElementById("transactionsList");
+        
+        if (filtered.length === 0) {
+            container.innerHTML = `<div class="empty-state">📭 Brak transakcji</div>`;
+            return;
+        }
+        
+        container.innerHTML = filtered.map(t => `
+            <div class="transaction-item">
+                <div>${t.description}</div>
+                <div><span class="category-badge" style="background: var(--bg);">${categories[t.category]?.icon || "📦"} ${categories[t.category]?.name || "Inne"}</span></div>
+                <div>${t.date}</div>
+                <div class="${t.type === 'income' ? 'amount-income' : 'amount-expense'}">${t.type === 'income' ? '+' : '-'} ${t.amount.toFixed(2)} zł</div>
+                <div class="transaction-actions">
+                    <button class="edit-trans" data-id="${t.id}">✏️</button>
+                    <button class="delete-trans" data-id="${t.id}">🗑️</button>
+                </div>
+            </div>
+        `).join("");
+        
+        document.querySelectorAll(".edit-trans").forEach(btn => {
+            btn.addEventListener("click", () => openEditModal(parseInt(btn.dataset.id)));
+        });
+        document.querySelectorAll(".delete-trans").forEach(btn => {
+            btn.addEventListener("click", () => {
+                if (confirm("Usunąć transakcję?")) {
+                    transactions = transactions.filter(t => t.id !== parseInt(btn.dataset.id));
+                    saveData();
+                    updateAll();
+                }
+            });
+        });
+    }
+
+    // ==================== WYKRESY ====================
+    function updateExpenseChart() {
+        const expensesByCat = {};
+        transactions.filter(t => t.type === "expense").forEach(t => {
+            const catName = categories[t.category]?.name || "Inne";
+            expensesByCat[catName] = (expensesByCat[catName] || 0) + t.amount;
+        });
+        
+        const labels = Object.keys(expensesByCat);
+        const data = Object.values(expensesByCat);
+        
+        const ctx = document.getElementById("expenseChart").getContext("2d");
+        if (expenseChart) expenseChart.destroy();
+        expenseChart = new Chart(ctx, {
+            type: "pie",
+            data: { labels, datasets: [{ data, backgroundColor: ["#4f46e5", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899"] }] },
+            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: "bottom", labels: { color: getComputedStyle(document.body).getPropertyValue("--text").trim() } } } }
+        });
+    }
+
+    function updateMonthlyChart() {
+        const monthlyData = {};
+        transactions.forEach(t => {
+            const date = new Date(t.date);
+            const key = `${date.getFullYear()}-${date.getMonth() + 1}`;
+            if (!monthlyData[key]) monthlyData[key] = { income: 0, expense: 0 };
+            if (t.type === "income") monthlyData[key].income += t.amount;
+            else monthlyData[key].expense += t.amount;
+        });
+        
+        const sorted = Object.keys(monthlyData).sort();
+        const labels = sorted.map(k => {
+            const [year, month] = k.split("-");
+            return `${year}-${month.padStart(2, "0")}`;
+        });
+        const incomes = sorted.map(k => monthlyData[k].income);
+        const expenses = sorted.map(k => monthlyData[k].expense);
+        
+        const ctx = document.getElementById("monthlyChart").getContext("2d");
+        if (monthlyChart) monthlyChart.destroy();
+        monthlyChart = new Chart(ctx, {
+            type: "bar",
+            data: { labels, datasets: [{ label: "Przychody", data: incomes, backgroundColor: "#10b981" }, { label: "Wydatki", data: expenses, backgroundColor: "#ef4444" }] },
+            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: "top", labels: { color: getComputedStyle(document.body).getPropertyValue("--text").trim() } } } }
+        });
+    }
+
+    // ==================== CELE ====================
+    function renderGoals() {
+        const container = document.getElementById("goalsList");
+        if (savingsGoals.length === 0) {
+            container.innerHTML = `<div class="empty-state" style="padding:1rem;">Brak celów. Dodaj pierwszy cel!</div>`;
+            return;
+        }
+        
+        container.innerHTML = savingsGoals.map(goal => {
+            const percent = (goal.current / goal.target) * 100;
+            return `
+                <div class="goal-item">
+                    <div class="goal-info">
+                        <strong>${goal.name}</strong>
+                        <span>${goal.current.toFixed(2)} zł / ${goal.target.toFixed(2)} zł</span>
+                    </div>
+                    <div class="goal-progress">
+                        <div class="goal-progress-fill" style="width: ${Math.min(100, percent)}%"></div>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; margin-top:0.5rem;">
+                        <button class="delete-goal" data-id="${goal.id}" style="background:none; border:none; cursor:pointer; color:var(--text-light);">🗑️ Usuń</button>
+                    </div>
+                </div>
+            `;
+        }).join("");
+        
+        document.querySelectorAll(".delete-goal").forEach(btn => {
+            btn.addEventListener("click", () => {
+                savingsGoals = savingsGoals.filter(g => g.id !== parseInt(btn.dataset.id));
+                saveData();
+                renderGoals();
+            });
+        });
+    }
+
+    // ==================== MODALE ====================
+    function openAddModal() {
+        editingId = null;
+        document.getElementById("modalTitle").innerText = "➕ Nowa transakcja";
+        document.getElementById("transDesc").value = "";
+        document.getElementById("transCategory").value = "food";
+        document.getElementById("transType").value = "expense";
+        document.getElementById("transAmount").value = "";
+        document.getElementById("transDate").value = new Date().toISOString().split("T")[0];
+        document.getElementById("transactionModal").style.display = "flex";
+    }
+
+    function openEditModal(id) {
+        const trans = transactions.find(t => t.id === id);
+        if (!trans) return;
+        editingId = id;
+        document.getElementById("modalTitle").innerText = "✏️ Edytuj transakcję";
+        document.getElementById("transDesc").value = trans.description;
+        document.getElementById("transCategory").value = trans.category;
+        document.getElementById("transType").value = trans.type;
+        document.getElementById("transAmount").value = trans.amount;
+        document.getElementById("transDate").value = trans.date;
+        document.getElementById("transactionModal").style.display = "flex";
+    }
+
+    function saveTransaction() {
+        const desc = document.getElementById("transDesc").value.trim();
+        const category = document.getElementById("transCategory").value;
+        const type = document.getElementById("transType").value;
+        const amount = parseFloat(document.getElementById("transAmount").value);
+        const date = document.getElementById("transDate").value;
+        
+        if (!desc || isNaN(amount) || amount <= 0 || !date) {
+            alert("Wypełnij wszystkie pola poprawnie");
+            return;
+        }
+        
+        if (editingId === null) {
+            transactions.push({ id: getNextId(), description: desc, category, type, amount, date });
+        } else {
+            const index = transactions.findIndex(t => t.id === editingId);
+            if (index !== -1) {
+                transactions[index] = { ...transactions[index], description: desc, category, type, amount, date };
+            }
+        }
+        
+        saveData();
+        updateAll();
+        document.getElementById("transactionModal").style.display = "none";
+    }
+
+    function openGoalModal() {
+        document.getElementById("goalName").value = "";
+        document.getElementById("goalTarget").value = "";
+        document.getElementById("goalModal").style.display = "flex";
+    }
+
+    function saveGoal() {
+        const name = document.getElementById("goalName").value.trim();
+        const target = parseFloat(document.getElementById("goalTarget").value);
+        if (!name || isNaN(target) || target <= 0) {
+            alert("Podaj nazwę i poprawny cel kwotowy");
+            return;
+        }
+        savingsGoals.push({ id: getNextGoalId(), name, current: 0, target });
+        saveData();
+        updateAll();
+        document.getElementById("goalModal").style.display = "none";
+    }
+
+    // ==================== FILTRY UI ====================
+    function updateMonthYearFilters() {
+        const months = new Set();
+        const years = new Set();
+        transactions.forEach(t => {
+            const date = new Date(t.date);
+            months.add(date.getMonth() + 1);
+            years.add(date.getFullYear());
+        });
+        
+        const monthSelect = document.getElementById("monthFilter");
+        monthSelect.innerHTML = '<option value="all">Wszystkie miesiące</option>';
+        Array.from(months).sort((a,b) => b - a).forEach(m => {
+            monthSelect.innerHTML += `<option value="${m}">${m}. miesiąc</option>`;
+        });
+        
+        const yearSelect = document.getElementById("yearFilter");
+        yearSelect.innerHTML = '<option value="all">Wszystkie lata</option>';
+        Array.from(years).sort((a,b) => b - a).forEach(y => {
+            yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+        });
+    }
+
+    function updateAll() {
+        updateBalances();
+        updateGoalCurrentAmounts();
+        renderTransactions();
+        updateExpenseChart();
+        updateMonthlyChart();
+        renderGoals();
+        updateMonthYearFilters();
+        saveData();
+    }
+
+    // ==================== START ====================
+    document.addEventListener("DOMContentLoaded", () => {
+        loadData();
+        updateAll();
+        
+        // Filtry
+        document.querySelectorAll("#typeFilters .filter-chip").forEach(btn => {
+            btn.addEventListener("click", () => {
+                document.querySelectorAll("#typeFilters .filter-chip").forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+                currentTypeFilter = btn.dataset.type;
+                renderTransactions();
+            });
+        });
+        
+        document.getElementById("monthFilter").addEventListener("change", (e) => {
+            currentMonth = e.target.value;
+            renderTransactions();
+        });
+        document.getElementById("yearFilter").addEventListener("change", (e) => {
+            currentYear = e.target.value;
+            renderTransactions();
+        });
+        document.getElementById("searchInput").addEventListener("input", (e) => {
+            searchQuery = e.target.value;
+            renderTransactions();
+        });
+        document.getElementById("sortSelect").addEventListener("change", (e) => {
+            currentSort = e.target.value;
+            renderTransactions();
+        });
+        
+        // Modale
+        document.getElementById("openAddModal").addEventListener("click", openAddModal);
+        document.getElementById("openGoalModal").addEventListener("click", openGoalModal);
+        document.getElementById("closeModal").addEventListener("click", () => document.getElementById("transactionModal").style.display = "none");
+        document.getElementById("closeGoalModal").addEventListener("click", () => document.getElementById("goalModal").style.display = "none");
+        document.getElementById("saveTransaction").addEventListener("click", saveTransaction);
+        document.getElementById("saveGoal").addEventListener("click", saveGoal);
+        document.getElementById("exportBtn").addEventListener("click", () => {
+            let csv = "Opis,Kategoria,Typ,Kwota,Data\n";
+            transactions.forEach(t => {
+                csv += `"${t.description}",${categories[t.category]?.name || "Inne"},${t.type === "income" ? "Przychód" : "Wydatek"},${t.amount},${t.date}\n`;
+            });
+            const blob = new Blob([csv], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "transakcje.csv";
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+        
+        // Dark mode
+        document.getElementById("themeBtn").addEventListener("click", () => {
+            document.body.classList.toggle("dark");
+            const isDark = document.body.classList.contains("dark");
+            document.getElementById("themeBtn").textContent = isDark ? "☀️" : "🌙";
+            localStorage.setItem("finance_theme", isDark ? "dark" : "light");
+            updateExpenseChart();
+            updateMonthlyChart();
+        });
+        if (localStorage.getItem("finance_theme") === "dark") {
+            document.body.classList.add("dark");
+            document.getElementById("themeBtn").textContent = "☀️";
+        }
+        
+        window.addEventListener("click", (e) => {
+            if (e.target === document.getElementById("transactionModal")) document.getElementById("transactionModal").style.display = "none";
+            if (e.target === document.getElementById("goalModal")) document.getElementById("goalModal").style.display = "none";
+        });
+    });
+</script>
+</body>
+</html>
